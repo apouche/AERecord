@@ -40,7 +40,7 @@ class DetailViewController: CoreDataCollectionViewController {
         
         let addFewAction = UIAlertAction(title: "Add Few", style: .Default) { (action) -> Void in
             // create few objects
-            for i in 1...5 {
+            for _ in 1...5 {
                 Event.createWithAttributes(["timeStamp" : NSDate()])
             }
             AERecord.saveContextAndWait()
@@ -61,7 +61,7 @@ class DetailViewController: CoreDataCollectionViewController {
                 self.performFetch()
             } else {
                 // < iOS 8
-                println("Batch updating is new in iOS 8.")
+                print("Batch updating is new in iOS 8.")
                 // update all objects through context
                 if let events = Event.all() as? [Event] {
                     for e in events {
