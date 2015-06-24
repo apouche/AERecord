@@ -331,7 +331,7 @@ private class AEStack {
                     } else {
                         if let err = error {
                             if kAERecordPrintLog {
-                                print("Error occured in \(NSStringFromClass(self.dynamicType)) - function: \(__FUNCTION__) | line: \(__LINE__)\n\(err)")
+                                print("Error occured in \(NSStringFromClass(self)) - function: \(__FUNCTION__) | line: \(__LINE__)\n\(err)")
                             }
                         }
                     }
