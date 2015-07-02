@@ -738,8 +738,6 @@ public class CoreDataTableViewController: UITableViewController, NSFetchedResult
             case .Move:
                 tableView.deleteRowsAtIndexPaths([indexPath!], withRowAnimation: .Fade)
                 tableView.insertRowsAtIndexPaths([newIndexPath!], withRowAnimation: .Fade)
-            default:
-                return
             }
         }
     }
