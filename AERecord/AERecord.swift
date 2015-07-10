@@ -44,8 +44,20 @@ public class AERecord {
         return AEStack.storeURLForName(name)
     }
     
-    public class func loadCoreDataStack(managedObjectModel: NSManagedObjectModel = AEStack.defaultModel, storeType: String = NSSQLiteStoreType, configuration: String? = nil, storeURL: NSURL = AEStack.defaultURL, options: [NSObject : AnyObject]? = nil) -> NSError? {
-        return AEStack.sharedInstance.loadCoreDataStack(managedObjectModel: managedObjectModel, storeType: storeType, configuration: configuration, storeURL: storeURL, options: options)
+    public class func loadCoreDataStack(managedObjectModel: NSManagedObjectModel = AEStack.defaultModel,
+        storeType: String = NSSQLiteStoreType,
+        configuration: String? = nil,
+        backgroundQueue: dispatch_queue_t? = nil,
+        storeURL: NSURL = AEStack.defaultURL,
+        options: [NSObject : AnyObject]? = nil) -> NSError? {
+            
+            return AEStack.sharedInstance.loadCoreDataStack(
+                managedObjectModel: managedObjectModel,
+                storeType: storeType,
+                configuration: configuration,
+                backgroundQueue: backgroundQueue,
+                storeURL: storeURL,
+                options: options)
     }
     
     public class func destroyCoreDataStack(storeURL: NSURL = AEStack.defaultURL) {
@@ -133,14 +145,11 @@ private class AEStack {
     func loadCoreDataStack(managedObjectModel: NSManagedObjectModel = defaultModel,
         storeType: String = NSSQLiteStoreType,
         configuration: String? = nil,
+        backgroundQueue: dispatch_queue_t? = nil,
         storeURL: NSURL = defaultURL,
         options: [NSObject : AnyObject]? = nil) -> NSError?
     {
         self.managedObjectModel = managedObjectModel
-        
-        // setup main and background contexts
-        mainContext = NSManagedObjectContext(concurrencyType: .MainQueueConcurrencyType)
-        backgroundContext = NSManagedObjectContext(concurrencyType: .PrivateQueueConcurrencyType)
         
         // create the coordinator and store
         persistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: managedObjectModel)
@@ -159,10 +168,23 @@ private class AEStack {
                 }
                 return error
             } else {
-                // everything went ok
-                mainContext.persistentStoreCoordinator = coordinator
-                backgroundContext.persistentStoreCoordinator = coordinator
-                startReceivingContextNotifications()
+                // setup main and background contexts
+                let setupContext:((inout context: NSManagedObjectContext!, type: NSManagedObjectContextConcurrencyType)->Void) = { context, type in
+                    context = NSManagedObjectContext(concurrencyType: type)
+                    context.persistentStoreCoordinator = coordinator
+                    self.startReceivingContextNotifications(context)
+                }
+                
+                setupContext(context: &mainContext, type: .MainQueueConcurrencyType)
+                
+                if let queue = backgroundQueue {
+                    dispatch_barrier_async(queue) {
+                        setupContext(context: &self.backgroundContext, type: .PrivateQueueConcurrencyType)
+                    }
+                }
+                else {
+                    setupContext(context: &self.backgroundContext, type: .PrivateQueueConcurrencyType)
+                }
                 return nil
             }
         } else {
@@ -270,9 +292,8 @@ private class AEStack {
     
     // MARK: Context Sync
     
-    func startReceivingContextNotifications() {
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: "contextDidSave:", name: NSManagedObjectContextDidSaveNotification, object: mainContext)
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: "contextDidSave:", name: NSManagedObjectContextDidSaveNotification, object: backgroundContext)
+    func startReceivingContextNotifications(context: NSManagedObjectContext) {
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "contextDidSave:", name: NSManagedObjectContextDidSaveNotification, object: context)
     }
     
     func stopReceivingContextNotifications() {
